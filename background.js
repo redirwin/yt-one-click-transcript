@@ -29,6 +29,34 @@ async function ensureContentScript(tabId) {
   }
 }
 
+// Right-click the toolbar icon → "Settings" to open the options panel as an
+// overlay over the current YouTube page. Off YouTube (where we can't inject),
+// fall back to the standalone options tab.
+const OPTIONS_MENU_ID = 'open-options';
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: OPTIONS_MENU_ID,
+    title: 'Settings',
+    contexts: ['action'],
+  });
+});
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId !== OPTIONS_MENU_ID) return;
+  const onYouTube = tab && tab.id && /^https:\/\/www\.youtube\.com\//.test(tab.url || '');
+  if (onYouTube) {
+    try {
+      await ensureContentScript(tab.id);
+      await chrome.tabs.sendMessage(tab.id, { type: 'OPEN_OPTIONS_OVERLAY' });
+      return;
+    } catch (_) {
+      // Fall through to the options tab.
+    }
+  }
+  chrome.runtime.openOptionsPage();
+});
+
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab || !tab.id) return;
   const url = tab.url || '';

@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "YouTube Transcript Extractor",
+  "name": "YT OneClick Transcript",
   "version": "1.0.0",
-  "description": "Click the toolbar icon on a YouTube video to copy its transcript to the clipboard.",
+  "description": "Copy a YouTube video's transcript to the clipboard in one click.",
   "action": {
-    "default_title": "Copy YouTube transcript",
+    "default_title": "Copy this video's transcript",
     "default_icon": {
       "16": "icon-16.png",
       "48": "icon-48.png",
@@ -19,13 +19,23 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["activeTab", "scripting", "clipboardWrite"],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "permissions": ["activeTab", "scripting", "clipboardWrite", "storage", "contextMenus"],
   "host_permissions": ["https://www.youtube.com/*"],
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/watch*"],
       "js": ["content.js"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["options.html"],
+      "matches": ["https://www.youtube.com/*"]
     }
   ]
 }

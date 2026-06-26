@@ -7,8 +7,8 @@
   // the service worker also injects it on click). Without this, each injection
   // registers another onMessage listener and a single click runs the whole
   // extraction several times concurrently.
-  if (window.__ytTranscriptExtractorLoaded) return;
-  window.__ytTranscriptExtractorLoaded = true;
+  if (window.__ytOneClickTranscriptLoaded) return;
+  window.__ytOneClickTranscriptLoaded = true;
 
   function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -125,6 +125,22 @@
     return withSegments || panels[0];
   }
 
+  // Distinguish auto-generated (ASR) captions from publisher-supplied ones by
+  // reading the transcript panel's footer language label, which YouTube renders
+  // as e.g. "English (auto-generated)" for ASR tracks. This is a text heuristic
+  // and only reliable in an English UI; returns 'unknown' when it can't tell.
+  function detectCaptionSource() {
+    const scope = findSegmentScope();
+    const footer =
+      scope.querySelector && scope.querySelector('ytd-transcript-footer-renderer');
+    if (!footer) return 'unknown';
+    const text = (footer.textContent || '').toLowerCase();
+    if (text.includes('auto-generated') || text.includes('auto generated')) {
+      return 'auto-generated';
+    }
+    return text.trim() ? 'publisher' : 'unknown';
+  }
+
   function findSegmentElements() {
     const scope = findSegmentScope();
     const SELECTORS = [
@@ -142,7 +158,16 @@
     return [];
   }
 
-  function readTranscriptSegments() {
+  const TIMESTAMP_RE = /\b(\d{1,2}:\d{2}(?::\d{2})?)\b/;
+  function readSegmentTimestamp(seg) {
+    const el = seg.querySelector('.segment-timestamp, [class*="segment-timestamp"]');
+    const fromEl = el && (el.textContent || '').trim();
+    if (fromEl) return fromEl;
+    const m = (seg.textContent || '').match(TIMESTAMP_RE);
+    return m ? m[1] : '';
+  }
+
+  function readTranscriptSegments(withTimestamps) {
     const segs = findSegmentElements();
     if (segs.length === 0) return [];
     const TEXT_SELECTORS = [
@@ -165,15 +190,21 @@
         raw = (seg.textContent || '').replace(/^\s*\d{1,2}:\d{2}(?::\d{2})?\s*/, '');
       }
       const line = normalizeLine(raw);
-      if (line) lines.push(line);
+      if (!line) continue;
+      if (withTimestamps) {
+        const time = readSegmentTimestamp(seg);
+        lines.push(time ? `[${time}] ${line}` : line);
+      } else {
+        lines.push(line);
+      }
     }
     return lines;
   }
 
-  async function extractTranscript() {
+  async function extractTranscript(withTimestamps) {
     // Already rendered (user opened the panel themselves)? Just read it.
     {
-      const existing = readTranscriptSegments();
+      const existing = readTranscriptSegments(withTimestamps);
       if (existing.length > 0) return existing;
     }
 
@@ -218,7 +249,7 @@
         prev = cur;
       }
 
-      const lines = readTranscriptSegments();
+      const lines = readTranscriptSegments(withTimestamps);
       if (lines.length === 0) {
         throw new Error('Transcript loaded but text could not be read');
       }
@@ -233,6 +264,16 @@
 
   function getTitle() {
     return (document.title || '').replace(/\s*-\s*YouTube\s*$/, '').trim();
+  }
+
+  // A canonical watch URL with just the video id — drops playlist, timestamp,
+  // and tracking params that ride along in location.href.
+  function getVideoUrl() {
+    try {
+      const id = new URL(location.href).searchParams.get('v');
+      if (id) return `https://www.youtube.com/watch?v=${id}`;
+    } catch (_) {}
+    return location.href;
   }
 
   async function copyToClipboard(text) {
@@ -259,24 +300,126 @@
     }
   }
 
+  const DEFAULT_SETTINGS = {
+    includeTimestamps: true,
+    includeTitle: true,
+    includeUrl: true,
+  };
+
+  async function getSettings() {
+    try {
+      return await chrome.storage.sync.get(DEFAULT_SETTINGS);
+    } catch (_) {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+
   async function extractAndCopy() {
     const isWatch = /^https:\/\/www\.youtube\.com\/watch/.test(location.href);
     if (!isWatch) throw new Error('Open a YouTube video first');
 
-    const lines = await extractTranscript();
-    const text = joinLines(lines);
+    const { includeTimestamps, includeTitle, includeUrl } = await getSettings();
+    const lines = await extractTranscript(includeTimestamps);
+    // With timestamps each cue is its own line; without, it's one prose block.
+    const body = includeTimestamps ? lines.join('\n') : joinLines(lines);
+
+    const source = detectCaptionSource();
+    const sourceLabel =
+      source === 'auto-generated'
+        ? 'auto-generated'
+        : source === 'publisher'
+          ? 'publisher-supplied'
+          : '';
+
+    const title = getTitle();
+    const headerLines = [];
+    if (includeTitle && title) headerLines.push(title);
+    if (includeUrl) headerLines.push(getVideoUrl());
+    if (sourceLabel) headerLines.push(`Source: ${sourceLabel}`);
+    const text = headerLines.length ? `${headerLines.join('\n')}\n\n${body}` : body;
+
     const copied = await copyToClipboard(text);
     if (!copied) throw new Error('Extracted but failed to write to clipboard');
 
-    return { ok: true, title: getTitle(), segments: lines.length };
+    return { ok: true, title: getTitle(), segments: lines.length, source };
+  }
+
+  // Floating settings panel: an iframe of the extension's own options page,
+  // shown over the current YouTube page so the user never leaves the video.
+  // Triggered from the toolbar icon's right-click menu (handled in background.js).
+  const OVERLAY_ID = 'ytc-options-overlay';
+  const OPTIONS_ORIGIN = new URL(chrome.runtime.getURL('options.html')).origin;
+  let overlayFrame = null;
+
+  function closeOptionsOverlay() {
+    const el = document.getElementById(OVERLAY_ID);
+    if (el) el.remove();
+    overlayFrame = null;
+    window.removeEventListener('keydown', onOverlayKeydown, true);
+    window.removeEventListener('message', onOverlayMessage);
+  }
+
+  function onOverlayKeydown(e) {
+    if (e.key === 'Escape') closeOptionsOverlay();
+  }
+
+  // The options page (running inside the iframe) posts its own content height so
+  // the iframe can be sized to fit exactly — no scrollbar — and a close request
+  // when the user clicks Done.
+  function onOverlayMessage(e) {
+    if (!overlayFrame || e.source !== overlayFrame.contentWindow) return;
+    if (e.origin !== OPTIONS_ORIGIN) return;
+    const data = e.data || {};
+    if (data.type === 'ytc-options-close') {
+      closeOptionsOverlay();
+    } else if (data.type === 'ytc-options-height' && typeof data.height === 'number') {
+      const max = Math.min(600, Math.floor(window.innerHeight * 0.9));
+      overlayFrame.style.height = Math.max(0, Math.min(data.height, max)) + 'px';
+    }
+  }
+
+  function showOptionsOverlay() {
+    // Toggle: a second trigger while open dismisses it.
+    if (document.getElementById(OVERLAY_ID)) {
+      closeOptionsOverlay();
+      return;
+    }
+
+    const backdrop = document.createElement('div');
+    backdrop.id = OVERLAY_ID;
+    backdrop.style.cssText =
+      'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.5);' +
+      'display:flex;align-items:center;justify-content:center;';
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closeOptionsOverlay();
+    });
+
+    const frame = document.createElement('iframe');
+    frame.src = chrome.runtime.getURL('options.html');
+    // Height starts as a sensible guess and is corrected to the exact content
+    // height as soon as the page reports it.
+    frame.style.cssText =
+      'width:560px;max-width:92vw;height:320px;max-height:min(90vh,600px);border:0;' +
+      'border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.35);background:#fff;';
+
+    overlayFrame = frame;
+    backdrop.appendChild(frame);
+    document.body.appendChild(backdrop);
+    window.addEventListener('keydown', onOverlayKeydown, true);
+    window.addEventListener('message', onOverlayMessage);
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (!msg || msg.type !== 'EXTRACT_AND_COPY') return;
+    if (!msg) return;
+    if (msg.type === 'OPEN_OPTIONS_OVERLAY') {
+      showOptionsOverlay();
+      return;
+    }
+    if (msg.type !== 'EXTRACT_AND_COPY') return;
     extractAndCopy()
       .then((payload) => sendResponse(payload))
       .catch((err) => {
-        console.warn('[YT Transcript] extract failed:', err);
+        console.warn('[YT OneClick Transcript] extract failed:', err);
         sendResponse({ ok: false, error: err && err.message ? err.message : String(err) });
       });
     return true;

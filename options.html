@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YT OneClick Transcript — Options</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0;
+      padding: 40px 20px;
+      background: #f6f7f9;
+      color: #111;
+    }
+
+    .card {
+      max-width: 560px;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #e3e5e8;
+      border-radius: 12px;
+      padding: 24px 28px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    h1 {
+      font-size: 18px;
+      margin: 0 0 4px;
+    }
+
+    .subtitle {
+      color: #5f6368;
+      font-size: 13px;
+      margin: 0 0 16px;
+    }
+
+    .option {
+      padding: 12px 0;
+      border-top: 1px solid #eceef0;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    input[type='checkbox'] {
+      width: 16px;
+      height: 16px;
+      accent-color: #c4302b;
+      cursor: pointer;
+    }
+
+    .hint {
+      color: #5f6368;
+      font-size: 12px;
+      line-height: 1.5;
+      margin: 5px 0 0 26px;
+    }
+
+    code {
+      background: #eceef0;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    #status {
+      color: #1b5e20;
+      font-size: 12px;
+    }
+
+    .btn {
+      display: none;
+      padding: 8px 18px;
+      border: 0;
+      border-radius: 8px;
+      background: #c4302b;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      background: #a82722;
+    }
+
+    /* Embedded as an in-page overlay: the iframe is the modal, so drop the
+       page padding and the card's own frame and let the card fill it. */
+    body.embedded {
+      padding: 0;
+      background: transparent;
+    }
+
+    body.embedded .card {
+      max-width: none;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    body.embedded .btn {
+      display: inline-block;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #1c1c1e;
+        color: #e8eaed;
+      }
+
+      .card {
+        background: #2a2b2e;
+        border-color: #3c3d40;
+      }
+
+      .subtitle,
+      .hint {
+        color: #9aa0a6;
+      }
+
+      .option {
+        border-top-color: #3c3d40;
+      }
+
+      code {
+        background: #3c3d40;
+      }
+
+      #status {
+        color: #7ee2a8;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h1>YT OneClick Transcript</h1>
+    <p class="subtitle">Choose what gets copied with each transcript.</p>
+
+    <div class="option">
+      <label>
+        <input type="checkbox" id="includeTimestamps" />
+        <span>Include timestamps</span>
+      </label>
+      <p class="hint">
+        On: each cue is copied on its own line, prefixed with <code>[mm:ss]</code>.<br />
+        Off: the transcript is copied as one continuous block of text.
+      </p>
+    </div>
+
+    <div class="option">
+      <label>
+        <input type="checkbox" id="includeTitle" />
+        <span>Include video title</span>
+      </label>
+      <p class="hint">Add the video title as the first header line.</p>
+    </div>
+
+    <div class="option">
+      <label>
+        <input type="checkbox" id="includeUrl" />
+        <span>Include video URL</span>
+      </label>
+      <p class="hint">Add a clean watch URL to the header.</p>
+    </div>
+
+    <div class="footer">
+      <span id="status"></span>
+      <button type="button" id="close" class="btn">Done</button>
+    </div>
+  </div>
+  <script src="options.js"></script>
+</body>
+
+</html>
