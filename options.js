@@ -11,20 +11,22 @@ const DEFAULTS = {
 };
 
 const embedded = window.top !== window.self;
-const status = document.getElementById('status');
+const status = document.getElementById("status");
 
 let statusTimer = null;
 function flash(message) {
   status.textContent = message;
   if (statusTimer) clearTimeout(statusTimer);
   statusTimer = setTimeout(() => {
-    status.textContent = '';
+    status.textContent = "";
   }, 1500);
 }
 
 function postHeight() {
-  const height = Math.ceil(document.documentElement.getBoundingClientRect().height);
-  window.parent.postMessage({ type: 'ytc-options-height', height }, '*');
+  const height = Math.ceil(
+    document.documentElement.getBoundingClientRect().height,
+  );
+  window.parent.postMessage({ type: "ytc-options-height", height }, "*");
 }
 
 async function load() {
@@ -33,21 +35,21 @@ async function load() {
     const box = document.getElementById(key);
     if (!box) continue;
     box.checked = stored[key];
-    box.addEventListener('change', async () => {
+    box.addEventListener("change", async () => {
       await chrome.storage.sync.set({ [key]: box.checked });
-      flash('Saved');
+      flash("Saved");
     });
   }
 }
 
 if (embedded) {
-  document.body.classList.add('embedded');
-  document.getElementById('close').addEventListener('click', () => {
-    window.parent.postMessage({ type: 'ytc-options-close' }, '*');
+  document.body.classList.add("embedded");
+  document.getElementById("close").addEventListener("click", () => {
+    window.parent.postMessage({ type: "ytc-options-close" }, "*");
   });
   // Report height now and whenever the content reflows.
   requestAnimationFrame(postHeight);
-  window.addEventListener('load', postHeight);
+  window.addEventListener("load", postHeight);
   if (window.ResizeObserver) {
     new ResizeObserver(postHeight).observe(document.body);
   }

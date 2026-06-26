@@ -77,7 +77,7 @@ The **title** and **URL** lines can each be turned off in the settings, alongsid
 
 ## Settings
 
-Three toggles control what's copied: **Include timestamps**, **Include video title**, and **Include video URL** (all on by default). They're saved and synced across your Chrome profile.
+Four toggles control what's copied: **Include timestamps**, **Include video title**, and **Include video URL** (all on by default), plus **Include cleanup prompt** (off by default — see [Cleaning up transcripts](#cleaning-up-transcripts)). They're saved and synced across your Chrome profile.
 
 Open them by **right-clicking the toolbar icon → Settings**, which shows the panel as an overlay right on the YouTube page so you never leave the video. (Off YouTube — or via Chrome's built-in **Options** entry — the same settings open in a standalone tab instead.)
 
@@ -86,6 +86,8 @@ Open them by **right-clicking the toolbar icon → Settings**, which shows the p
 Auto-generated transcripts are rough — no punctuation, filler words, and the occasional misheard word. The repo ships a ready-made prompt for tidying them up with an AI assistant: [`prompts/clean-transcript.md`](prompts/clean-transcript.md).
 
 Copy the prompt, paste it into any AI chat tool (ChatGPT, Claude, Gemini, Claude Code, …), paste your copied transcript below it, and send. It punctuates, removes filler and false starts, fixes obvious speech-recognition errors, and paragraphs the text — without summarizing or changing meaning. It also preserves the title/URL/source header and any `[mm:ss]` timestamps.
+
+To skip the copy-and-paste step, turn on **Include cleanup prompt** in the [settings](#settings): the extension then prepends this same prompt above every copied transcript, so you can paste the whole bundle straight into a chat tool and send. (It reads the prompt from `prompts/clean-transcript.md`, so edits there flow through automatically.)
 
 ## Files
 

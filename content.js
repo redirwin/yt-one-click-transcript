@@ -304,7 +304,26 @@
     includeTimestamps: true,
     includeTitle: true,
     includeUrl: true,
+    includePrompt: false,
   };
+
+  const TRANSCRIPT_SEPARATOR = '--- Below is the copied transcript ---';
+
+  // The transcript-cleanup prompt, read from the packaged markdown file so it
+  // stays a single source of truth. We use the prompt body — everything after
+  // the first standalone "---" line — and drop its trailing "paste the
+  // transcript below this line" marker, since the bundle adds its own separator.
+  async function getPromptPreamble() {
+    try {
+      const res = await fetch(chrome.runtime.getURL('prompts/clean-transcript.md'));
+      const md = await res.text();
+      const idx = md.indexOf('\n---\n');
+      const body = idx >= 0 ? md.slice(idx + 5) : md;
+      return body.trim().replace(/\s*\n+---[^\n]*paste[^\n]*$/i, '').trim();
+    } catch (_) {
+      return '';
+    }
+  }
 
   async function getSettings() {
     try {
@@ -318,7 +337,7 @@
     const isWatch = /^https:\/\/www\.youtube\.com\/watch/.test(location.href);
     if (!isWatch) throw new Error('Open a YouTube video first');
 
-    const { includeTimestamps, includeTitle, includeUrl } = await getSettings();
+    const { includeTimestamps, includeTitle, includeUrl, includePrompt } = await getSettings();
     const lines = await extractTranscript(includeTimestamps);
     // With timestamps each cue is its own line; without, it's one prose block.
     const body = includeTimestamps ? lines.join('\n') : joinLines(lines);
@@ -336,7 +355,12 @@
     if (includeTitle && title) headerLines.push(title);
     if (includeUrl) headerLines.push(getVideoUrl());
     if (sourceLabel) headerLines.push(`Source: ${sourceLabel}`);
-    const text = headerLines.length ? `${headerLines.join('\n')}\n\n${body}` : body;
+    let text = headerLines.length ? `${headerLines.join('\n')}\n\n${body}` : body;
+
+    if (includePrompt) {
+      const preamble = await getPromptPreamble();
+      if (preamble) text = `${preamble}\n\n${TRANSCRIPT_SEPARATOR}\n\n${text}`;
+    }
 
     const copied = await copyToClipboard(text);
     if (!copied) throw new Error('Extracted but failed to write to clipboard');
