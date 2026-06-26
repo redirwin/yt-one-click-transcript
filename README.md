@@ -22,12 +22,12 @@ Having the transcript as plain text — rather than scrubbing the video — make
 
 - **Summarize with an AI assistant.** Paste a long talk, lecture, or podcast into ChatGPT/Claude and ask for a summary, outline, or key takeaways instead of watching the whole thing.
 - **Search and skim.** `Ctrl+F` the transcript to find exactly where a topic is discussed, then jump back to that moment in the video.
-- **Take study or meeting notes.** Capture the spoken content of a tutorial, conference talk, or recorded meeting to annotate and keep.
+- **Take study notes.** Capture the spoken content of a recorded lecture, tutorial, or conference talk to annotate and keep.
 - **Quote accurately.** Pull exact wording for articles, reviews, research, or reaction/commentary content without mishearing.
 - **Translate.** Drop the text into a translation tool to read along in another language.
 - **Accessibility.** Read at your own pace instead of relying on on-screen captions, or feed the text to a screen reader.
 - **Repurpose content.** Creators can turn a video's spoken content into a blog post, show notes, social captions, or chapter markers.
-- **Build datasets.** Collect transcripts for analysis, search indexing, or training/reference corpora.
+- **Create Artifacts.** Feed the transcripts to an AI assistant to create study guides, summaries, or other useful tools based on the source video.
 
 ## Installation
 
@@ -91,14 +91,14 @@ To skip the copy-and-paste step, turn on **Include cleanup prompt** in the [sett
 
 ## Files
 
-| File                          | Purpose                                                                                            |
-| ----------------------------- | -------------------------------------------------------------------------------------------------- |
-| `manifest.json`               | Extension manifest (MV3): permissions, icons, content-script registration.                         |
+| File                          | Purpose                                                                                                                            |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `manifest.json`               | Extension manifest (MV3): permissions, icons, content-script registration.                                                         |
 | `background.js`               | Service worker — handles toolbar clicks and the icon's right-click menu, messages the content script, and drives the status badge. |
-| `content.js`                  | Runs on watch pages — opens the transcript panel, reads the segments, copies the text, and shows the in-page settings overlay. |
-| `options.html` / `options.js` | Settings UI — toggles for timestamps, title, and URL (shown as an in-page overlay or in a tab).    |
-| `prompts/clean-transcript.md` | Portable AI prompt for cleaning up a copied transcript.                                            |
-| `icon-16/48/128.png`          | Toolbar and extension icons.                                                                       |
+| `content.js`                  | Runs on watch pages — opens the transcript panel, reads the segments, copies the text, and shows the in-page settings overlay.     |
+| `options.html` / `options.js` | Settings UI — toggles for timestamps, title, and URL (shown as an in-page overlay or in a tab).                                    |
+| `prompts/clean-transcript.md` | Portable AI prompt for cleaning up a copied transcript.                                                                            |
+| `icon-16/48/128.png`          | Toolbar and extension icons.                                                                                                       |
 
 ## Permissions
 
